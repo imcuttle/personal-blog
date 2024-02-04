@@ -167,10 +167,13 @@ function workLoop(deadline) {
         commitRoot()
     }
 
-    requestIdleCallback(workLoop)
+    t = requestIdleCallback(workLoop);
 }
 
-requestIdleCallback(workLoop)
+if (typeof t !== 'undefined') {
+    cancelIdleCallback(t);
+}
+t = requestIdleCallback(workLoop);
 
 function performUnitOfWork(fiber) {
     const isFunctionComponent =
@@ -203,6 +206,36 @@ function updateFunctionComponent(fiber) {
     reconcileChildren(fiber, children)
 }
 
+function useEffect(effect, deps = []) {
+    const oldHook =
+        wipFiber.alternate &&
+        wipFiber.alternate.hooks &&
+        wipFiber.alternate.hooks[hookIndex]
+    const hook = {
+        deps,
+        effect,
+        timer: null
+    }
+    const contextFiber = wipFiber;
+
+    const shouldFire = !oldHook || oldHook.deps.length !== hook.deps.length || oldHook.deps.some((a, i) => a !== hook.deps[i]);
+    if (shouldFire) {
+        if (oldHook?.timer) {
+            cancelAnimationFrame(oldHook?.timer)
+        }
+        hook.timer = requestAnimationFrame(() => {
+            if (oldHook && typeof oldHook.dispose === 'function') {
+                oldHook.dispose();
+            }
+            hook.dispose = effect();
+            hook.timer = null;
+        })
+    }
+
+    wipFiber.hooks.push(hook)
+    hookIndex++
+}
+
 function useState(initial) {
     const oldHook =
         wipFiber.alternate &&
@@ -215,15 +248,14 @@ function useState(initial) {
 
     const actions = oldHook ? oldHook.queue : []
     actions.forEach(action => {
-        hook.state = action(hook.state)
+        hook.state = typeof action === 'function' ? action(hook.state) : action
     })
-
+    const contextFiber = wipFiber;
     const setState = action => {
         hook.queue.push(action)
         wipRoot = {
-            dom: currentRoot.dom,
-            props: currentRoot.props,
-            alternate: currentRoot,
+            ...contextFiber,
+            alternate: contextFiber,
         }
         nextUnitOfWork = wipRoot
         deletions = []
@@ -302,18 +334,41 @@ function reconcileChildren(wipFiber, elements) {
 const Didact = {
     createElement,
     render,
+    useEffect,
     useState,
 }
 
 /** @jsx Didact.createElement */
-function Counter() {
+function App() {
     const [state, setState] = Didact.useState(1)
     return (
-        <h1 onClick={() => setState(c => c + 1)}>
-            Count: {state}
-        </h1>
+        Didact.createElement('div', {},
+            Didact.createElement('button', {
+                onClick: () => setState(c => c + 1)
+            }, `Count+1`),
+            Didact.createElement(Counter, { count: state }),
+            Didact.createElement(Counter, { count: 100 })
+        )
     )
 }
-const element = <Counter />
+
+function Counter({ count = 1 }) {
+    const [state, setState] = Didact.useState(count)
+    Didact.useEffect(() => {
+        if (count != null && count !== state) {
+            setState(count)
+        }
+        return () => {
+            console.log('dispose')
+        }
+    }, [count])
+    return (
+        Didact.createElement('h1', {
+            onClick: () => setState(c => c + 1)
+        }, `Count: ${state}`)
+    )
+}
+const element = Didact.createElement(App);
+document.body.innerHTML = '<div id="root"></div>';
 const container = document.getElementById("root")
 Didact.render(element, container)
