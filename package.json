@@ -1,0 +1,29 @@
+{
+  "name": "personal-blog",
+  "version": "1.0.0",
+  "description": "详细见 issues",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imcuttle/personal-blog.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/imcuttle/personal-blog/issues"
+  },
+  "homepage": "https://github.com/imcuttle/personal-blog#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "prettier": "~2.4",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3",
+    "whatwg-fetch": "^3.6.20"
+  }
+}
