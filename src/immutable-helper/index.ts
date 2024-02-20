@@ -1,0 +1,76 @@
+class collector {
+    addModify(paths) {
+
+    }
+}
+
+const shadowClone = item => {
+    if (typeof item === 'object' && item) {
+        return Array.isArray(item) ? item.slice() : {...item}
+    }
+    return item;
+}
+
+const arrayMutableMethods = ['pop', 'push', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
+
+function createProxy(item, opts = {}) {
+    const {
+        onAfterCloned
+    } = opts;
+    let runtimeTarget = item;
+    let cloned = false
+    const shadowCloneTarget = () => {
+        if (!cloned) {
+            runtimeTarget = shadowClone(runtimeTarget);
+            onAfterCloned?.(runtimeTarget);
+        }
+    }
+    const isArrayType = Array.isArray(runtimeTarget)
+
+    return {
+        proxiedTarget: new Proxy(item, {
+            set(target: any, p: string | symbol, newValue: any, receiver: any): boolean {
+                if (runtimeTarget[p] !== newValue) {
+                    shadowCloneTarget();
+                    return Reflect.set(runtimeTarget, p, newValue)
+                }
+                return Reflect.set(runtimeTarget, p, newValue)
+            },
+            get(target: any, p: string, receiver: any): any {
+                const v = Reflect.get(runtimeTarget, p);
+                if (v == null || typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') {
+                    return v;
+                }
+                if (isArrayType) {
+                    if (arrayMutableMethods.includes(p)) {
+                        return new Proxy(runtimeTarget[p], {
+                            apply(target: any, thisArg: any, argArray: any[]): any {
+                                shadowCloneTarget();
+                                return target.apply(runtimeTarget, argArray);
+                            }
+                        })
+                    }
+                }
+                const { proxiedTarget, getRuntimeTarget } = createProxy(v, {
+                    onAfterCloned: () => {
+                        runtimeTarget[p] = getRuntimeTarget();
+                    }
+                });
+                return proxiedTarget;
+            }
+        }),
+        getRuntimeTarget: () => runtimeTarget
+    }
+}
+
+export default class ImmutableHelper {
+    constructor(private _obj) {
+
+    }
+
+    produce(mutator) {
+        const { proxiedTarget, getRuntimeTarget } = createProxy(this._obj);
+        mutator(proxiedTarget);
+        return getRuntimeTarget();
+    }
+}
