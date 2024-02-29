@@ -1,9 +1,3 @@
-class collector {
-    addModify(paths) {
-
-    }
-}
-
 const shadowClone = item => {
     if (typeof item === 'object' && item) {
         return Array.isArray(item) ? item.slice() : {...item}
